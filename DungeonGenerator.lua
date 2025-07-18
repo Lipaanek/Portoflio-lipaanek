@@ -25,9 +25,8 @@ local rooms : {{any : number}} = {
 
 local function addToIgnoreList(ignoreList: {BasePart}, ...) : {BasePart}
 	for _, part in ipairs(...) do
-		if part:IsA("BasePart") then
-			table.insert(ignoreList, part)
-		end
+		if not part:IsA("BasePart") then continue end
+		table.insert(ignoreList, part)
 	end
 	return ignoreList
 end
@@ -60,6 +59,7 @@ local function isSpaceFree(roomModel : Model, currentRoom : Model) : boolean
 	local overlapParams = OverlapParams.new()
 	overlapParams.FilterDescendantsInstances = ignoreList
 	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+
 	local overlappingParts = workspace:GetPartsInPart(checkPart, overlapParams)
 	checkPart:Destroy()
 
@@ -83,7 +83,7 @@ local function placeRoom(exit : BasePart, currentRoom : Model) : Model | nil
 			warn("Room has no PrimaryPart or Entrance")
 			return nil
 		end
-		task.wait()
+
 		if isSpaceFree(room, currentRoom) then
 			room.Parent = generatedFolder
 			return room
@@ -91,7 +91,6 @@ local function placeRoom(exit : BasePart, currentRoom : Model) : Model | nil
 			wrongRoomCount += 1
 			room:Destroy()
 		end
-		task.wait()
 	end
 	return nil
 end
@@ -124,10 +123,10 @@ local function generateLevel(currentRoom : Model) : nil
 	local exits = currentRoom:GetChildren() :: {Instance}
 	for _, part in exits do
 		if part.Name ~= "Exit" then continue end
-		
+
 		local placedRoom = placeRoom(part, currentRoom)
 		if not placedRoom then continue end
-		
+
 		placementHistory[historyNumber] = placedRoom
 		historyNumber+= 1
 		coroutine.wrap(generateLevel)(placedRoom)
@@ -146,8 +145,8 @@ local function resetAndGenerateFromExistingRoom(pickedRooms : {[string] : Model}
 		warn("No generated rooms found to pick from!")
 		return
 	end
-	
-	
+
+
 	-- Pick one random room from generated rooms
 	--local pickedRoom = generatedRooms[math.random(1, #generatedRooms)]
 	for _, room in pairs(pickedRooms) do
@@ -174,7 +173,7 @@ local function resetAndGenerateFromExistingRoom(pickedRooms : {[string] : Model}
 	wrongRoomCount = 0
 	placementHistory = {}
 	historyNumber = 1
-	
+
 	for _, room in pairs(pickedRooms) do
 		coroutine.wrap(generateLevel)(room)
 	end
@@ -188,25 +187,23 @@ local function getPlayerPositionInsideRooms() : {[string] : Model}
 
 	for _, player in ipairs(players) do
 		local character = player.Character
-		if character and character.PrimaryPart then
-			local charPos = character.PrimaryPart.Position
+		if not character or not character.PrimaryPart then continue end
+		local charPos = character.PrimaryPart.Position
 
-			-- Check which generated room the player is inside
-			for _, room in ipairs(generatedFolder:GetChildren()) do
-				if room:IsA("Model") then
-					local cframe, size = room:GetBoundingBox()
-					local min = cframe.Position - (size * 0.5)
-					local max = cframe.Position + (size * 0.5)
+		-- Check which generated room the player is inside
+		for _, room in ipairs(generatedFolder:GetChildren()) do
+			if not room:IsA("Model") then continue end
+			local cframe, size = room:GetBoundingBox()
+			local min = cframe.Position - (size * 0.5)
+			local max = cframe.Position + (size * 0.5)
 
-					if
-						charPos.X >= min.X and charPos.X <= max.X and
-						charPos.Y >= min.Y and charPos.Y <= max.Y and
-						charPos.Z >= min.Z and charPos.Z <= max.Z
-					then
-						positions[player.Name] = room
-						break
-					end
-				end
+			if
+				charPos.X >= min.X and charPos.X <= max.X and
+				charPos.Y >= min.Y and charPos.Y <= max.Y and
+				charPos.Z >= min.Z and charPos.Z <= max.Z
+			then
+				positions[player.Name] = room
+				break
 			end
 		end
 	end
@@ -232,5 +229,3 @@ while task.wait(15) do
 		warn("No players found inside any room, skipping regeneration to prevent deletion.")
 	end
 end
-
-
